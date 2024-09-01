@@ -1,0 +1,128 @@
+#define led_a 13
+#define led_r 12
+#define led_v 11
+
+bool estado_verde = LOW;
+bool estado_rojo = LOW;
+bool estado_amarillo = LOW;
+bool todas_las_luces_encendidas = false;
+bool modo_intermitente_activo = false;
+
+void setup() {
+  pinMode(led_a, OUTPUT);
+  pinMode(led_r, OUTPUT);
+  pinMode(led_v, OUTPUT);
+  Serial.begin(9600);
+  mostrarIndicaciones();
+}
+
+void loop() {
+  if (Serial.available() > 0) {
+    char comando = Serial.read();
+    Serial.print("Comando recibido: ");
+    Serial.println(comando);
+
+    if (modo_intermitente_activo) {
+      if (comando >= '1' && comando <= '9') {
+        Serial.println("Modo intermitente en ejecucion. Espere a que termine.");
+        return;
+      }
+    }
+
+    if (todas_las_luces_encendidas && (comando >= '1' && comando <= '6')) {
+      Serial.println("Comando no permitido: Todas las luces estan encendidas.");
+      return;
+    }
+
+    if ((estado_verde && (comando == '3' || comando == '4' || comando == '5' || comando == '6')) ||
+        (estado_rojo && (comando == '1' || comando == '2' || comando == '5' || comando == '6')) ||
+        (estado_amarillo && (comando == '1' || comando == '2' || comando == '3' || comando == '4'))) {
+      Serial.println("Comando no permitido: Otro LED esta encendido.");
+      return;
+    }
+
+    switch (comando) {
+      case '1':
+      case '2':
+        estado_verde = !estado_verde;
+        controlarLuz(led_v, estado_verde);
+        break;
+      case '3':
+      case '4':
+        estado_rojo = !estado_rojo;
+        controlarLuz(led_r, estado_rojo);
+        break;
+      case '5':
+      case '6':
+        estado_amarillo = !estado_amarillo;
+        controlarLuz(led_a, estado_amarillo);
+        break;
+      case '7':
+      case '8':
+        todas_las_luces_encendidas = !todas_las_luces_encendidas;
+        Serial.println(todas_las_luces_encendidas ? "Todas las luces encendidas." : "Todas las luces apagadas.");
+        controlarTodasLasLuces(todas_las_luces_encendidas);
+        estado_verde = todas_las_luces_encendidas;
+        estado_rojo = todas_las_luces_encendidas;
+        estado_amarillo = todas_las_luces_encendidas;
+        break;
+      case '9':
+        modo_intermitente_activo = true;
+        Serial.println("Modo intermitente");
+        ritmoIntermitente();
+        modo_intermitente_activo = false;
+        controlarTodasLasLuces(LOW);
+        estado_verde = LOW;
+        estado_rojo = LOW;
+        estado_amarillo = LOW;
+        todas_las_luces_encendidas = false;
+        break;
+      default:
+        Serial.println("Comando no valido.");
+        break;
+    }
+  }
+}
+
+void controlarLuz(int pin, int estado) {
+  digitalWrite(pin, estado);
+}
+
+void controlarTodasLasLuces(bool estado) {
+  digitalWrite(led_a, estado);
+  digitalWrite(led_r, estado);
+  digitalWrite(led_v, estado);
+}
+
+void ritmoIntermitente() {
+  int corto = 200;
+  int largo = 600;
+
+  for (int i = 0; i < 3; i++) {
+    controlarTodasLasLuces(HIGH);
+    delay(corto);
+    controlarTodasLasLuces(LOW);
+    delay(corto);
+    controlarTodasLasLuces(HIGH);
+    delay(corto);
+    controlarTodasLasLuces(LOW);
+    delay(corto);
+    controlarTodasLasLuces(HIGH);
+    delay(largo);
+    controlarTodasLasLuces(LOW);
+    delay(corto);
+  }
+}
+
+void mostrarIndicaciones() {
+  Serial.println("Indicaciones de uso:");
+  Serial.println("1 o 2: Encender/Apagar el LED verde.");
+  Serial.println("3 o 4: Encender/Apagar el LED rojo.");
+  Serial.println("5 o 6: Encender/Apagar el LED amarillo.");
+  Serial.println("7 u 8: Encender/Apagar todos los LEDs.");
+  Serial.println("9: Encender todos los LEDs en modo intermitente.");
+  Serial.println("Nota:");
+  Serial.println("- Si una de las opciones de 1 a 6 esta activa, las demas no funcionaran, excepto las opciones 7, 8 o 9.");
+  Serial.println("- Si las opciones 7 u 8 estan activas, no se podran ejecutar las opciones de 1 a 6.");
+  Serial.println("- La opcion 9 se ejecuta en modo intermitente(se repite 3 veces) y luego permitira ejecutar las demas opciones.");
+}
